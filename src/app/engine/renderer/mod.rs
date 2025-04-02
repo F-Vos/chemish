@@ -1,6 +1,5 @@
+use anyhow::Result;
 use std::sync::Arc;
-
-use anyhow::{Ok, Result};
 use winit::window::Window;
 
 pub struct Renderer {}

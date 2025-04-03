@@ -3,7 +3,6 @@ mod renderer;
 use anyhow::Result;
 use renderer::Renderer;
 use std::{collections::HashMap, sync::Arc};
-use tracing::event;
 use winit::{
     event::WindowEvent,
     event_loop::ActiveEventLoop,

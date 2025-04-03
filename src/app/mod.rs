@@ -17,7 +17,7 @@ impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.engine = Some(Engine::new(event_loop).unwrap());
         if let Some(engine) = self.engine.as_mut() {
-            let secondary_window = engine
+            let _secondary_window = engine
                 .create_window(
                     event_loop,
                     WindowAttributes::default().with_title("Sec window"),

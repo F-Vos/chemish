@@ -1,12 +1,17 @@
-use std::sync::Arc;
+mod context;
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
+use context::Context;
+use std::sync::Arc;
 use winit::window::Window;
 
-pub struct Renderer {}
+pub struct Renderer {
+    context: Context,
+}
 
 impl Renderer {
     pub fn new(window: Arc<Window>) -> Result<Self> {
-        Ok(Self {})
+        let context = Context::new(window)?;
+        Ok(Self { context })
     }
 }

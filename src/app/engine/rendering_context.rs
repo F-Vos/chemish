@@ -1,5 +1,5 @@
-use anyhow::Result;
-use ash::vk;
+use anyhow::{Ok, Result};
+use ash::vk::{self, SurfaceCapabilitiesKHR};
 use std::collections::HashSet;
 use winit::{
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
@@ -9,6 +9,7 @@ use winit::{
 pub struct RenderingContext {
     pub queues: Vec<vk::Queue>,
     pub device: ash::Device,
+    pub swapchain_extension: ash::khr::swapchain::Device,
     pub queue_family_indices: HashSet<u32>,
     pub queue_families: QueueFamilies,
     pub physical_device: PhysicalDevice,
@@ -189,6 +190,8 @@ impl RenderingContext {
             )?
         };
 
+        let swapchain_extension = ash::khr::swapchain::Device::new(&instance, &device);
+
         let queues = queue_family_indices
             .iter()
             .map(|index| unsafe { device.get_device_queue(*index, 0) })
@@ -203,8 +206,78 @@ impl RenderingContext {
             surface_extension,
             instance,
             entry,
+            swapchain_extension,
         })
     }
+
+    pub unsafe fn create_surface(&self, window: &Window) -> Result<Surface> {
+        let raw_display_handle = window.display_handle()?.as_raw();
+        let raw_window_handle = window.window_handle()?.as_raw();
+        let handle = unsafe {
+            ash_window::create_surface(
+                &self.entry,
+                &self.instance,
+                raw_display_handle,
+                raw_window_handle,
+                None,
+            )?
+        };
+
+        let capabilities = unsafe {
+            self.surface_extension
+                .get_physical_device_surface_capabilities(self.physical_device.handle, handle)
+        }?;
+
+        let formats = unsafe {
+            self.surface_extension
+                .get_physical_device_surface_formats(self.physical_device.handle, handle)
+        }?;
+
+        let present_modes = unsafe {
+            self.surface_extension
+                .get_physical_device_surface_present_modes(self.physical_device.handle, handle)
+        }?;
+
+        Ok(Surface {
+            handle,
+            capabilities,
+            formats,
+            present_modes,
+        })
+    }
+    pub fn create_image_view(
+        &self,
+        image: vk::Image,
+        format: vk::Format,
+        aspect_flags: vk::ImageAspectFlags,
+    ) -> Result<vk::ImageView> {
+        let image_view = unsafe {
+            self.device.create_image_view(
+                &vk::ImageViewCreateInfo::default()
+                    .image(image)
+                    .view_type(vk::ImageViewType::TYPE_2D)
+                    .format(format)
+                    .components(vk::ComponentMapping::default())
+                    .subresource_range(
+                        vk::ImageSubresourceRange::default()
+                            .aspect_mask(aspect_flags)
+                            .base_mip_level(0)
+                            .level_count(1)
+                            .base_array_layer(0)
+                            .layer_count(1),
+                    ),
+                None,
+            )
+        }?;
+        Ok(image_view)
+    }
+}
+
+pub struct Surface {
+    pub handle: vk::SurfaceKHR,
+    pub capabilities: SurfaceCapabilitiesKHR,
+    pub formats: Vec<vk::SurfaceFormatKHR>,
+    pub present_modes: Vec<vk::PresentModeKHR>,
 }
 
 impl Drop for RenderingContext {

@@ -122,6 +122,9 @@ impl Drop for Swapchain {
             self.context
                 .swapchain_extension
                 .destroy_swapchain(self.handle, None);
+            self.context
+                .surface_extension
+                .destroy_surface(self.surface.handle, None);
         }
     }
 }

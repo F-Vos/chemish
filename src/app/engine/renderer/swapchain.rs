@@ -60,6 +60,10 @@ impl Swapchain {
             height: size.height,
         };
 
+        if self.extent.width == 0 || self.extent.height == 0 {
+            return Ok(());
+        }
+
         let new_swapchain = unsafe {
             self.context.swapchain_extension.create_swapchain(
                 &vk::SwapchainCreateInfoKHR::default()
@@ -106,5 +110,18 @@ impl Swapchain {
         }
 
         Ok(())
+    }
+}
+
+impl Drop for Swapchain {
+    fn drop(&mut self) {
+        unsafe {
+            self.image_views.drain(..).for_each(|image_view| {
+                self.context.device.destroy_image_view(image_view, None);
+            });
+            self.context
+                .swapchain_extension
+                .destroy_swapchain(self.handle, None);
+        }
     }
 }

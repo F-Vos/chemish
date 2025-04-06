@@ -1,6 +1,9 @@
 use anyhow::{Ok, Result};
-use ash::vk::{self, SurfaceCapabilitiesKHR};
-use std::collections::HashSet;
+use ash::{
+    khr::swapchain,
+    vk::{self, PipelineCache, SurfaceCapabilitiesKHR},
+};
+use std::{collections::HashSet, io};
 use winit::{
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::Window,
@@ -270,6 +273,89 @@ impl RenderingContext {
             )
         }?;
         Ok(image_view)
+    }
+    pub fn create_shader_module(&self, code: &[u8]) -> Result<vk::ShaderModule> {
+        let mut code = io::Cursor::new(code);
+        let code = ash::util::read_spv(&mut code)?;
+        let create_info = vk::ShaderModuleCreateInfo::default().code(&code);
+        let shader_module = unsafe { self.device.create_shader_module(&create_info, None)? };
+        Ok(shader_module)
+    }
+
+    pub fn create_graphics_pipeline(
+        &self,
+        vertex_shader: vk::ShaderModule,
+        fragment_shader: vk::ShaderModule,
+        image_extent: vk::Extent2D,
+        image_format: vk::Format,
+        pipeline_layout: vk::PipelineLayout,
+        pipeline_cache: vk::PipelineCache,
+    ) -> Result<vk::Pipeline> {
+        let entry_point = std::ffi::CString::new("main")?;
+
+        unsafe {
+            Ok(self
+                .device
+                .create_graphics_pipelines(
+                    pipeline_cache,
+                    &[vk::GraphicsPipelineCreateInfo::default()
+                        .stages(&[
+                            vk::PipelineShaderStageCreateInfo::default()
+                                .stage(vk::ShaderStageFlags::VERTEX)
+                                .module(vertex_shader)
+                                .name(&entry_point),
+                            vk::PipelineShaderStageCreateInfo::default()
+                                .stage(vk::ShaderStageFlags::FRAGMENT)
+                                .module(fragment_shader)
+                                .name(&entry_point),
+                        ])
+                        .vertex_input_state(&vk::PipelineVertexInputStateCreateInfo::default())
+                        .input_assembly_state(&vk::PipelineInputAssemblyStateCreateInfo {
+                            topology: vk::PrimitiveTopology::TRIANGLE_LIST,
+                            ..Default::default()
+                        })
+                        .viewport_state(
+                            &vk::PipelineViewportStateCreateInfo::default()
+                                .viewports(&[
+                                    vk::Viewport::default().width(image_extent.width as f32)
+                                ])
+                                .scissors(&[vk::Rect2D::default().extent(image_extent)]),
+                        )
+                        .rasterization_state(&vk::PipelineRasterizationStateCreateInfo {
+                            polygon_mode: vk::PolygonMode::FILL,
+                            line_width: 1.0,
+                            cull_mode: vk::CullModeFlags::NONE,
+                            front_face: vk::FrontFace::COUNTER_CLOCKWISE,
+                            ..Default::default()
+                        })
+                        .multisample_state(&vk::PipelineMultisampleStateCreateInfo {
+                            rasterization_samples: vk::SampleCountFlags::TYPE_1,
+                            ..Default::default()
+                        })
+                        .color_blend_state(&vk::PipelineColorBlendStateCreateInfo {
+                            attachment_count: 1,
+                            p_attachments: {
+                                let attachments = [vk::PipelineColorBlendAttachmentState {
+                                    color_write_mask: vk::ColorComponentFlags::RGBA,
+                                    blend_enable: vk::FALSE,
+                                    ..Default::default()
+                                }];
+                                attachments.as_ptr()
+                            },
+                            ..Default::default()
+                        })
+                        .layout(pipeline_layout)
+                        .push_next(
+                            &mut vk::PipelineRenderingCreateInfo::default()
+                                .color_attachment_formats(&[image_format]),
+                        )],
+                    None,
+                )
+                .unwrap()
+                .into_iter()
+                .next()
+                .unwrap())
+        }
     }
 }
 

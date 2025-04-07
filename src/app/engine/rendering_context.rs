@@ -316,9 +316,10 @@ impl RenderingContext {
                         })
                         .viewport_state(
                             &vk::PipelineViewportStateCreateInfo::default()
-                                .viewports(&[
-                                    vk::Viewport::default().width(image_extent.width as f32)
-                                ])
+                                .viewports(&[vk::Viewport::default()
+                                    .width(image_extent.width as f32)
+                                    .height(image_extent.height as f32)
+                                    .max_depth(1.0)])
                                 .scissors(&[vk::Rect2D::default().extent(image_extent)]),
                         )
                         .rasterization_state(&vk::PipelineRasterizationStateCreateInfo {
@@ -344,6 +345,12 @@ impl RenderingContext {
                             },
                             ..Default::default()
                         })
+                        .dynamic_state(
+                            &vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&[
+                                vk::DynamicState::VIEWPORT,
+                                vk::DynamicState::SCISSOR,
+                            ]),
+                        )
                         .layout(pipeline_layout)
                         .push_next(
                             &mut vk::PipelineRenderingCreateInfo::default()
